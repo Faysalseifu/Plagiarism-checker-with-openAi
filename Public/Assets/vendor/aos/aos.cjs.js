@@ -238,3 +238,132 @@ var applyClasses = function applyClasses(el, top) {
   }
 };
 
+/**
+ * Scroll logic - add or remove 'aos-animate' class on scroll
+ *
+ * @param  {array} $elements         array of elements nodes
+ * @return {void}
+ */
+var handleScroll = function handleScroll($elements) {
+  return $elements.forEach(function (el, i) {
+    return applyClasses(el, window.pageYOffset);
+  });
+};
+
+/**
+ * Get offset of DOM element
+ * like there were no transforms applied on it
+ *
+ * @param  {Node} el [DOM element]
+ * @return {Object} [top and left offset]
+ */
+var offset = function offset(el) {
+  var _x = 0;
+  var _y = 0;
+
+  while (el && !isNaN(el.offsetLeft) && !isNaN(el.offsetTop)) {
+    _x += el.offsetLeft - (el.tagName != 'BODY' ? el.scrollLeft : 0);
+    _y += el.offsetTop - (el.tagName != 'BODY' ? el.scrollTop : 0);
+    el = el.offsetParent;
+  }
+
+  return {
+    top: _y,
+    left: _x
+  };
+};
+
+/**
+ * Get inline option with a fallback.
+ *
+ * @param  {Node} el [Dom element]
+ * @param  {String} key [Option key]
+ * @param  {String} fallback [Default (fallback) value]
+ * @return {Mixed} [Option set with inline attributes or fallback value if not set]
+ */
+
+var getInlineOption = (function (el, key, fallback) {
+  var attr = el.getAttribute('data-aos-' + key);
+
+  if (typeof attr !== 'undefined') {
+    if (attr === 'true') {
+      return true;
+    } else if (attr === 'false') {
+      return false;
+    }
+  }
+
+  return attr || fallback;
+});
+
+/**
+ * Calculate offset
+ * basing on element's settings like:
+ * - anchor
+ * - offset
+ *
+ * @param  {Node} el [Dom element]
+ * @return {Integer} [Final offset that will be used to trigger animation in good position]
+ */
+
+var getPositionIn = function getPositionIn(el, defaultOffset, defaultAnchorPlacement) {
+  var windowHeight = window.innerHeight;
+  var anchor = getInlineOption(el, 'anchor');
+  var inlineAnchorPlacement = getInlineOption(el, 'anchor-placement');
+  var additionalOffset = Number(getInlineOption(el, 'offset', inlineAnchorPlacement ? 0 : defaultOffset));
+  var anchorPlacement = inlineAnchorPlacement || defaultAnchorPlacement;
+  var finalEl = el;
+
+  if (anchor && document.querySelectorAll(anchor)) {
+    finalEl = document.querySelectorAll(anchor)[0];
+  }
+
+  var triggerPoint = offset(finalEl).top - windowHeight;
+
+  switch (anchorPlacement) {
+    case 'top-bottom':
+      // Default offset
+      break;
+    case 'center-bottom':
+      triggerPoint += finalEl.offsetHeight / 2;
+      break;
+    case 'bottom-bottom':
+      triggerPoint += finalEl.offsetHeight;
+      break;
+    case 'top-center':
+      triggerPoint += windowHeight / 2;
+      break;
+    case 'center-center':
+      triggerPoint += windowHeight / 2 + finalEl.offsetHeight / 2;
+      break;
+    case 'bottom-center':
+      triggerPoint += windowHeight / 2 + finalEl.offsetHeight;
+      break;
+    case 'top-top':
+      triggerPoint += windowHeight;
+      break;
+    case 'bottom-top':
+      triggerPoint += windowHeight + finalEl.offsetHeight;
+      break;
+    case 'center-top':
+      triggerPoint += windowHeight + finalEl.offsetHeight / 2;
+      break;
+  }
+
+  return triggerPoint + additionalOffset;
+};
+
+var getPositionOut = function getPositionOut(el, defaultOffset) {
+  var windowHeight = window.innerHeight;
+  var anchor = getInlineOption(el, 'anchor');
+  var additionalOffset = getInlineOption(el, 'offset', defaultOffset);
+  var finalEl = el;
+
+  if (anchor && document.querySelectorAll(anchor)) {
+    finalEl = document.querySelectorAll(anchor)[0];
+  }
+
+  var elementOffsetTop = offset(finalEl).top;
+
+  return elementOffsetTop + finalEl.offsetHeight - additionalOffset;
+};
