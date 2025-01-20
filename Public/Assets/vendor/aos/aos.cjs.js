@@ -367,3 +367,248 @@ var getPositionOut = function getPositionOut(el, defaultOffset) {
 
   return elementOffsetTop + finalEl.offsetHeight - additionalOffset;
 };
+
+/* Clearing variables */
+
+var prepare = function prepare($elements, options) {
+  $elements.forEach(function (el, i) {
+    var mirror = getInlineOption(el.node, 'mirror', options.mirror);
+    var once = getInlineOption(el.node, 'once', options.once);
+    var id = getInlineOption(el.node, 'id');
+    var customClassNames = options.useClassNames && el.node.getAttribute('data-aos');
+
+    var animatedClassNames = [options.animatedClassName].concat(customClassNames ? customClassNames.split(' ') : []).filter(function (className) {
+      return typeof className === 'string';
+    });
+
+    if (options.initClassName) {
+      el.node.classList.add(options.initClassName);
+    }
+
+    el.position = {
+      in: getPositionIn(el.node, options.offset, options.anchorPlacement),
+      out: mirror && getPositionOut(el.node, options.offset)
+    };
+
+    el.options = {
+      once: once,
+      mirror: mirror,
+      animatedClassNames: animatedClassNames,
+      id: id
+    };
+  });
+
+  return $elements;
+};
+
+/**
+ * Generate initial array with elements as objects
+ * This array will be extended later with elements attributes values
+ * like 'position'
+ */
+var elements = (function () {
+  var elements = document.querySelectorAll('[data-aos]');
+  return Array.prototype.map.call(elements, function (node) {
+    return { node: node };
+  });
+});
+
+/**
+ * *******************************************************
+ * AOS (Animate on scroll) - wowjs alternative
+ * made to animate elements on scroll in both directions
+ * *******************************************************
+ */
+
+/**
+ * Private variables
+ */
+var $aosElements = [];
+var initialized = false;
+
+/**
+ * Default options
+ */
+var options = {
+  offset: 120,
+  delay: 0,
+  easing: 'ease',
+  duration: 400,
+  disable: false,
+  once: false,
+  mirror: false,
+  anchorPlacement: 'top-bottom',
+  startEvent: 'DOMContentLoaded',
+  animatedClassName: 'aos-animate',
+  initClassName: 'aos-init',
+  useClassNames: false,
+  disableMutationObserver: false,
+  throttleDelay: 99,
+  debounceDelay: 50
+};
+
+// Detect not supported browsers (<=IE9)
+// http://browserhacks.com/#hack-e71d8692f65334173fee715c222cb805
+var isBrowserNotSupported = function isBrowserNotSupported() {
+  return document.all && !window.atob;
+};
+
+var initializeScroll = function initializeScroll() {
+  // Extend elements objects in $aosElements with their positions
+  $aosElements = prepare($aosElements, options);
+  // Perform scroll event, to refresh view and show/hide elements
+  handleScroll($aosElements);
+
+  /**
+   * Handle scroll event to animate elements on scroll
+   */
+  window.addEventListener('scroll', throttle(function () {
+    handleScroll($aosElements, options.once);
+  }, options.throttleDelay));
+
+  return $aosElements;
+};
+
+/**
+ * Refresh AOS
+ */
+var refresh = function refresh() {
+  var initialize = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+
+  // Allow refresh only when it was first initialized on startEvent
+  if (initialize) initialized = true;
+  if (initialized) initializeScroll();
+};
+
+/**
+ * Hard refresh
+ * create array with new elements and trigger refresh
+ */
+var refreshHard = function refreshHard() {
+  $aosElements = elements();
+
+  if (isDisabled(options.disable) || isBrowserNotSupported()) {
+    return disable();
+  }
+
+  refresh();
+};
+
+/**
+ * Disable AOS
+ * Remove all attributes to reset applied styles
+ */
+var disable = function disable() {
+  $aosElements.forEach(function (el, i) {
+    el.node.removeAttribute('data-aos');
+    el.node.removeAttribute('data-aos-easing');
+    el.node.removeAttribute('data-aos-duration');
+    el.node.removeAttribute('data-aos-delay');
+
+    if (options.initClassName) {
+      el.node.classList.remove(options.initClassName);
+    }
+
+    if (options.animatedClassName) {
+      el.node.classList.remove(options.animatedClassName);
+    }
+  });
+};
+
+/**
+ * Check if AOS should be disabled based on provided setting
+ */
+var isDisabled = function isDisabled(optionDisable) {
+  return optionDisable === true || optionDisable === 'mobile' && detect.mobile() || optionDisable === 'phone' && detect.phone() || optionDisable === 'tablet' && detect.tablet() || typeof optionDisable === 'function' && optionDisable() === true;
+};
+
+/**
+ * Initializing AOS
+ * - Create options merging defaults with user defined options
+ * - Set attributes on <body> as global setting - css relies on it
+ * - Attach preparing elements to options.startEvent,
+ *   window resize and orientation change
+ * - Attach function that handle scroll and everything connected to it
+ *   to window scroll event and fire once document is ready to set initial state
+ */
+var init = function init(settings) {
+  options = _extends(options, settings);
+
+  // Create initial array with elements -> to be fullfilled later with prepare()
+  $aosElements = elements();
+
+  /**
+   * Disable mutation observing if not supported
+   */
+  if (!options.disableMutationObserver && !observer.isSupported()) {
+    console.info('\n      aos: MutationObserver is not supported on this browser,\n      code mutations observing has been disabled.\n      You may have to call "refreshHard()" by yourself.\n    ');
+    options.disableMutationObserver = true;
+  }
+
+  /**
+   * Observe [aos] elements
+   * If something is loaded by AJAX
+   * it'll refresh plugin automatically
+   */
+  if (!options.disableMutationObserver) {
+    observer.ready('[data-aos]', refreshHard);
+  }
+
+  /**
+   * Don't init plugin if option `disable` is set
+   * or when browser is not supported
+   */
+  if (isDisabled(options.disable) || isBrowserNotSupported()) {
+    return disable();
+  }
+
+  /**
+   * Set global settings on body, based on options
+   * so CSS can use it
+   */
+  document.querySelector('body').setAttribute('data-aos-easing', options.easing);
+
+  document.querySelector('body').setAttribute('data-aos-duration', options.duration);
+
+  document.querySelector('body').setAttribute('data-aos-delay', options.delay);
+
+  /**
+   * Handle initializing
+   */
+  if (['DOMContentLoaded', 'load'].indexOf(options.startEvent) === -1) {
+    // Listen to options.startEvent and initialize AOS
+    document.addEventListener(options.startEvent, function () {
+      refresh(true);
+    });
+  } else {
+    window.addEventListener('load', function () {
+      refresh(true);
+    });
+  }
+
+  if (options.startEvent === 'DOMContentLoaded' && ['complete', 'interactive'].indexOf(document.readyState) > -1) {
+    // Initialize AOS if default startEvent was already fired
+    refresh(true);
+  }
+
+  /**
+   * Refresh plugin on window resize or orientation change
+   */
+  window.addEventListener('resize', debounce(refresh, options.debounceDelay, true));
+
+  window.addEventListener('orientationchange', debounce(refresh, options.debounceDelay, true));
+
+  return $aosElements;
+};
+
+/**
+ * Export Public API
+ */
+
+var aos = {
+  init: init,
+  refresh: refresh,
+  refreshHard: refreshHard
+};
+
+module.exports = aos;
