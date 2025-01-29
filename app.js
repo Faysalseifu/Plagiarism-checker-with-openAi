@@ -109,3 +109,25 @@ app.get("/", function (req, res) {
   max_tokens: 100
   });
   
+  const answer = response.choices[0].message['content'];
+  console.log("Searching Result:", answer);
+  
+  // Store the question and answer in the MongoDB collection
+  await qaCollection.insertOne({ topic, question: messages[1].content, answer });
+  
+  res.render("check", { answer });
+  } catch (error) {
+  console.error("Error:", error);
+  res.status(500).send("An error occurred while processing the request.");
+  }
+  });
+  
+  const port = 3000;
+  app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+  });
+  })
+  .catch((error) => {
+  console.error("MongoDB connection error:", error);
+  });
+  
