@@ -85,3 +85,27 @@ MongoClient.connect("mongodb+srv://fayselseifu:faysel1234@cluster0.79szisr.mongo
     "Implementation of a data-driven quality control system",
     "Design and development of an augmented reality-based product visualization tool"
 ];
+
+app.get("/", function (req, res) {
+  res.render("check", { answer: "" });
+  });
+  app.get('/about', function (req, res) {
+  // Assuming 'about.ejs' is in the 'views' directory
+  res.render('about');
+  });
+  
+  app.post("/getRequest", async function (req, res) {
+  try {
+  const { topic } = req.body;
+  
+  const messages = [
+  { role: 'system', content: 'You are a helpful assistant.' },
+  { "role": "user", "content": `Check if the topic "${topic}" is present in the list of ${pretopics}. Create a completion request only if the title is already in use and compare it to existing topics. If the topic is not present or bears less than 60% similarity, share the similarity percentage and the related topic, and state that the title is approved. In case of over 60% similarity, suggest trying a different topic and provide a reason. Ensure the response is concise, limited to a maximum of 5 lines. Mention that the previous topics constitute a list of topics existing in a database and worked on in previous papers.` }
+  ];
+  
+  const response = await openai.chat.completions.create({
+  model: 'gpt-3.5-turbo',
+  messages,
+  max_tokens: 100
+  });
+  
